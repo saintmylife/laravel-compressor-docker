@@ -1,0 +1,45 @@
+<?php
+
+namespace {{ namespace }};
+
+use App\Modules\Base\Domain\BaseService;
+use App\Modules\Common\Domain\Payload;
+use App\Modules\{{ arg_name }}\Domain\{{ arg_name }}Filter;
+use App\Modules\{{ arg_name }}\Repository\{{ arg_name }}RepositoryInterface;
+use App\Modules\{{ arg_name }}\{{ arg_name }}Dto;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
+
+/**
+ * {{ class }}Create domain
+ */
+class {{ class }}Create extends BaseService
+{
+    private $filter;
+    private ${{ strtolower(arg_name) }}Repo;
+
+    public function __construct({{ arg_name }}Filter $filter, {{ arg_name }}RepositoryInterface ${{ strtolower(arg_name) }}Repo)
+    {
+        $this->filter = $filter;
+        $this->{{ strtolower(arg_name) }}Repo = ${{ strtolower(arg_name) }}Repo;
+    }
+
+    public function __invoke(array $data): Payload
+    {
+
+        ${{ strtolower(arg_name) }}Dto = $this->makeDto($data, new {{ arg_name }}Dto);
+
+        if (!$this->filter->forInsert(${{ strtolower(arg_name) }}Dto)) {
+            $messages = $this->filter->getMessages();
+            return $this->newPayload(Payload::STATUS_NOT_VALID, compact('data', 'messages'));
+        }
+
+        /*
+        ${{ strtolower(arg_name) }}Dto->password = Hash::make(${{ strtolower(arg_name) }}Dto->password);
+        $create = $this->{{ strtolower(arg_name) }}Repo->create(${{ strtolower(arg_name) }}Dto->getData());
+        //$create->syncRoles('Personal');
+        */
+
+        return $this->newPayload(Payload::STATUS_CREATED, compact('create'));
+    }
+}

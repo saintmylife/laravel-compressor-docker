@@ -1,0 +1,27 @@
+<?php
+
+namespace {{ namespace }};
+
+use Prettus\Repository\Eloquent\BaseRepository;
+use Prettus\Repository\Criteria\RequestCriteria;
+
+class {{ class }}Eloquent extends BaseRepository implements {{ arg_name_before_elq }}Interface
+{
+
+    protected $fieldSearchable = [
+    ];
+
+    public function boot(){
+        $this->pushCriteria(app('Prettus\Repository\Criteria\RequestCriteria'));
+    }
+
+    /**
+     * Specify Model class name
+     *
+     * @return string
+     */
+    public function model()
+    {
+        //
+    }
+}

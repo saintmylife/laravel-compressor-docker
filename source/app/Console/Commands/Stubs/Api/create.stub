@@ -1,0 +1,28 @@
+<?php
+
+namespace {{ namespace }};
+
+use App\Http\Controllers\Controller;
+use App\Modules\{{ arg_name }}\Domain\Service\{{ arg_name }}Create;
+use Illuminate\Http\Request;
+
+/**
+ * {{ class }}
+ */
+class {{ class }} extends Controller
+{
+    private $domain;
+    private $responder;
+
+    public function __construct({{ arg_name }}Create $domain, {{ arg_name }}CreateResponder $responder)
+    {
+        $this->domain = $domain;
+        $this->responder = $responder;
+    }
+
+    public function __invoke(Request $request)
+    {
+        $payload = $this->domain->__invoke($request->all());
+        return $this->responder->__invoke($payload);
+    }
+}

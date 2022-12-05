@@ -1,0 +1,90 @@
+name: laravel-compressor-video
+
+services:
+
+  nginx:
+    extends:
+      file: docker-compose.base.yml
+      service: source-code
+    image: nginx:1.23.2-alpine
+    volumes:
+      - ./nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "80:80"
+    links:
+      - php-fpm
+    depends_on:
+      - php-fpm
+    networks:
+      default:
+        <<: &url-aliases
+          aliases:
+            - www.compressor.localhost
+      ingress:
+        <<: *url-aliases
+    environment:
+      - BACKEND_ENDPOINT=php-fpm
+
+  php-fpm:
+    <<: &php
+      extends:
+        file: docker-compose.base.yml
+        service: php
+    build:
+      context: ./php/fpm
+    command: php-fpm
+    environment:
+      - PHP_FPM_MAX_CHILDREN=5
+
+  php-workspace:
+    <<: *php
+    build:
+      context: ./php/workspace
+      args:
+        - UID=${UID:?err}
+    volumes:
+      - ${COMPOSER_CACHE_PATH:-~/.composer}:/home/dev/.composer
+      - ./fpm
+    environment:
+      - HOME=/home/dev
+      - PHP_FPM_FFMPEG=true
+    profiles:
+      - workspace
+
+  php-worker-default:
+    <<: *php
+    restart: always
+    command: php artisan queue:work --queue=high,medium,low,default
+
+  mariadb:
+    image: mariadb:10.9.4
+    volumes:
+      - mariadb:/var/lib/mysql
+      - ./mariadb/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+    ports:
+      - "${MARIADB_PORT:-3306}:3306"
+    environment:
+      - MYSQL_DATABASE=laravel_compress_video
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD=secret
+      - MYSQL_ROOT_PASSWORD=root
+
+  wait-for-mariadb:
+    image: willwill/wait-for-it
+    command: ["mariadb:3306", "-t", "300", "--", "echo", "mariadb is up"]
+    profiles:
+      - tools
+
+  redis:
+    image: redis:7.0.5-alpine
+    volumes:
+      - redis:/data
+
+
+volumes:
+  mariadb:
+  redis:
+
+networks:
+  ingress: # ingress is used for outside service to connect to jakmall nginx by using external network jakmall_ingress
+  egress: # egress is used for outside service that can be accessed by php by using external network jakmall_egress

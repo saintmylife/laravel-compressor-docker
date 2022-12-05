@@ -1,0 +1,28 @@
+<?php
+
+namespace {{ namespace }};
+
+use App\Http\Controllers\Controller;
+use App\Modules\{{ arg_name }}\Domain\Service\{{ arg_name }}Fetch;
+use Illuminate\Http\Request;
+
+/**
+ * {{ class }}
+ */
+class {{ class }} extends Controller
+{
+    private $domain;
+    private $responder;
+
+    public function __construct({{ arg_name }}Fetch $domain, {{ arg_name }}FetchResponder $responder)
+    {
+        $this->domain = $domain;
+        $this->responder = $responder;
+    }
+
+    public function __invoke(int $id)
+    {
+        $payload = $this->domain->__invoke($id);
+        return $this->responder->__invoke($payload);
+    }
+}

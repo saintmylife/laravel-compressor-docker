@@ -1,0 +1,15 @@
+<?php
+
+namespace {{ namespace }};
+
+use App\Modules\Base\BaseDto;
+
+class {{ class }} extends BaseDto
+{
+    /*
+    protected $id;
+    protected $email;
+    protected $password;
+    protected $roles;
+    */
+}

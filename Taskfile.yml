@@ -1,0 +1,331 @@
+version: '3'
+
+dotenv:
+  - .task/.env
+
+vars:
+
+  ##################
+  # USER VARIABLES #
+  ##################
+  # These user variables can be overridden by env specified in file ".task/.env"
+  ##################
+
+  ##################
+
+  ####################
+  # SYSTEM VARIABLES #
+  ####################
+
+  INFRASTRUCTURE_LOCAL_DIR: docker
+  UPLOADS_DIR: uploads
+  INFRASTRUCTURE_LOCAL_UPLOADS_DIR: "{{.INFRASTRUCTURE_LOCAL_DIR}}/php/{{.UPLOADS_DIR}}"
+
+tasks:
+
+  ##############
+  # USER TASKS #
+  ##############
+  # Tasks that are run directly by user
+  # Must have desc so can be shown by command task -l
+  ##############
+
+  help:
+    desc: Print all available tasks
+    cmds:
+      - task: default
+
+  compose:
+    dir: "{{.INFRASTRUCTURE_LOCAL_DIR}}"
+    preconditions:
+      - sh: test -f .env
+        msg: "You must setup Docker Compose .env (infrastructure/.env) file first before continue this action"
+    desc: Run docker compose command
+    summary: |
+      Usage:
+      task compose -- [command]
+
+      Example:
+      task compose -- ps
+    cmds:
+      -  docker compose{{if eq .KIBANA "true"}} --profile kibana{{end}} {{.CLI_ARGS}}
+
+  up:
+    desc: Start running containers
+    summary: |
+      Usage:
+      task up -- [services ...]
+
+      Example:
+      task up
+      task up -- mariadb redis
+    cmds:
+      - task: compose
+        vars:
+          CLI_ARGS: "up -d {{.CLI_ARGS}}"
+
+  down:
+    desc: Stop running containers
+    cmds:
+      - task: compose
+        vars:
+          CLI_ARGS: "down --remove-orphans{{if eq .REMOVE_VOLUME \"true\"}} -v{{end}}"
+
+  build:
+    desc: Build container and restart it
+    summary: |
+      Usage:
+      task build -- [services ...]
+
+      Example:
+      task build
+      task build -- php-workspace
+    cmds:
+      - task: up
+        vars:
+          CLI_ARGS: "--build {{.CLI_ARGS}}"
+
+  exec:
+    desc: Run command in container
+    summary: |
+      Usage:
+      task exec -- [service] [command]
+
+      Example:
+      task exec -- mariadb mysql -u root -p
+    cmds:
+      - task: compose
+        vars:
+          CLI_ARGS: "exec {{.CLI_ARGS}}"
+
+  logs:
+    desc: Show logs from container
+    summary: |
+      Usage:
+      task logs -- [services ...]
+
+      Example:
+      task logs -- mariadb php-fpm
+    cmds:
+      - task: compose
+        vars:
+          CLI_ARGS: "logs -t -f {{.CLI_ARGS}}"
+
+  workspace:
+    desc: Run command in php-workspace
+    summary: |
+      Usage:
+      task workspace -- [command]
+
+      Example:
+      task workspace -- sh
+    cmds:
+      - task: compose
+        vars:
+          CLI_ARGS: "--profile workspace run --rm php-workspace {{.CLI_ARGS}}"
+
+  artisan:
+    desc: Run artisan command in php-fpm
+    summary: |
+      Usage:
+      task artisan -- [command]
+
+      Example:
+      task artisan
+      task artisan -- tinker
+    cmds:
+      - task: php-fpm-exec
+        vars:
+          CLI_ARGS: php artisan {{.CLI_ARGS}}
+
+  migrate:
+    desc: Run artisan migrate in php-fpm
+    cmds:
+      - task: artisan
+        vars:
+          CLI_ARGS: migrate
+
+  composer:
+    desc: Run composer in php-workspace
+    summary: |
+      Usage:
+      task composer -- [command]
+
+      Example:
+      task composer
+      task composer -- dump-autoload
+    cmds:
+      - task: workspace
+        vars:
+          CLI_ARGS: php -d memory_limit=-1 /usr/local/bin/composer -vvv {{.CLI_ARGS}}
+
+  composer-dump:
+    desc: Run composer dump-autoload in php-workspace
+    cmds:
+      - task: composer
+        vars:
+          CLI_ARGS: dump-autoload
+
+  composer-install:
+    desc: Run composer install in php-workspace
+    cmds:
+      - task: composer
+        vars:
+          CLI_ARGS: install --ignore-platform-reqs
+    sources:
+      - composer.lock
+
+  composer-update:
+    desc: Run composer update in php-workspace
+    cmds:
+      - task: composer
+        vars:
+          CLI_ARGS: update --ignore-platform-reqs
+
+  composer-require:
+    desc: Run composer require in php-workspace
+    summary: |
+      Usage:
+      task composer-require -- [package]
+
+      Example:
+      task composer-require -- predis/predis
+    cmds:
+      - task: composer
+        vars:
+          CLI_ARGS: require --ignore-platform-reqs {{.CLI_ARGS}}
+
+  refresh:
+    desc: Refresh all data from snapshot
+    cmds:
+      - task: down
+        vars:
+          REMOVE_VOLUME: true
+      - task: refresh-uploads
+      - task: up
+        vars:
+          CLI_ARGS: php-fpm
+      - task: wait-for-mariadb
+      - task: migrate
+      - task: up
+
+  setup:
+    desc: Setup the project for the first time after git clone
+    cmds:
+      - task: composer-install
+      - task: refresh
+
+  dump:
+    desc: Dump database and uploads
+    cmds:
+      - task: wait-for-mariadb
+      - task: exec-mariadb-query-as-root
+        vars:
+          QUERY: "delete from jakmall.migrations where migration like '%elasticsearch%'"
+      - task: exec-mariadb-query-as-root
+        vars:
+          QUERY: truncate jakmall.revisions
+      - task: exec-mariadb-query-as-root
+        vars:
+          QUERY: truncate jakmall.failed_jobs
+      - task: mysql-dump-structure
+      - task: mysql-dump-data
+      - task: dump-uploads
+
+  ##############
+
+  ################
+  # SYSTEM TASKS #
+  ################
+  # Tasks that are called by other task that is run by user
+  # These tasks won't be run by user directly
+  # Must not have desc, so it wont shown by command task -l
+  ##############
+
+  default:
+    cmds:
+      - task -l
+    silent: true
+
+  overwrite-dir:
+    cmds:
+      - rm -Rf {{.DESTINATION}}
+      - cp -Rf {{.SOURCE}} {{.DESTINATION}}
+
+  refresh-uploads:
+    cmds:
+      - task: overwrite-dir
+        vars:
+          SOURCE: "{{.INFRASTRUCTURE_LOCAL_UPLOADS_DIR}}"
+          DESTINATION: "{{.UPLOADS_DIR}}"
+
+  wait-for:
+    cmds:
+      - task: compose
+        vars:
+          CLI_ARGS: "--profile tools run --rm wait-for-{{.SERVICE}}"
+
+  wait-for-mariadb:
+    cmds:
+      - task: wait-for
+        vars:
+          SERVICE: mariadb
+
+  wait-for-elasticsearch:
+    cmds:
+      - task: wait-for
+        vars:
+          SERVICE: elasticsearch
+
+  php-fpm-exec:
+    cmds:
+      - task: exec
+        vars:
+          CLI_ARGS: "php-fpm {{.CLI_ARGS}}"
+
+  exec-mariadb-as-root:
+    vars:
+      EXE: '{{default "mysql" .EXE}}'
+    cmds:
+      - task: exec
+        vars:
+          CLI_ARGS: "mariadb {{.EXE}} -u root -proot {{.COMMAND}}"
+
+  exec-mariadb-query-as-root:
+    cmds:
+      - task: exec-mariadb-as-root
+        vars:
+          COMMAND: '-e "{{.QUERY}}"'
+
+  mysql-dump:
+    cmds:
+      - task: exec-mariadb-as-root
+        vars:
+          EXE: mysqldump
+          COMMAND: "--single-transaction {{.MYSQLDUMP_OPTIONS}} jakmall {{if .CLEANER}}{{.CLEANER}} {{end}}| sed 'N;$!P;$!D;$d' > mariadb/docker-entrypoint-initdb.d/{{.DUMP_FILE_NUMBER}}-{{.DUMP_FILE_NAME}}.sql"
+
+  mysql-dump-structure:
+    cmds:
+      - task: mysql-dump
+        vars:
+          MYSQLDUMP_OPTIONS: --no-data --skip-add-drop-table
+          CLEANER: "| sed 's/ AUTO_INCREMENT=[0-9]*//g'"
+          DUMP_FILE_NUMBER: 0
+          DUMP_FILE_NAME: structure
+
+  mysql-dump-data:
+    cmds:
+      - task: mysql-dump
+        vars:
+          MYSQLDUMP_OPTIONS: --no-create-info --hex-blob
+          DUMP_FILE_NUMBER: 1
+          DUMP_FILE_NAME: data
+
+  dump-uploads:
+    cmds:
+      - task: overwrite-dir
+        vars:
+          SOURCE: "{{.UPLOADS_DIR}}"
+          DESTINATION: "{{.INFRASTRUCTURE_LOCAL_UPLOADS_DIR}}"
+
+  ##############

@@ -1,0 +1,12 @@
+<?php
+
+namespace {{ namespace }};
+
+use App\Modules\Base\Domain\BaseResponder;
+
+/**
+ * {{ class }}
+ */
+class {{ class }} extends BaseResponder
+{
+}
