@@ -39,7 +39,7 @@ tasks:
     dir: "{{.INFRASTRUCTURE_LOCAL_DIR}}"
     preconditions:
       - sh: test -f .env
-        msg: "You must setup Docker Compose .env (infrastructure/.env) file first before continue this action"
+        msg: "You must setup Docker Compose .env (docker/.env) file first before continue this action"
     desc: Run docker compose command
     summary: |
       Usage:
