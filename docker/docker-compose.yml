@@ -44,7 +44,6 @@ services:
         - UID=${UID:?err}
     volumes:
       - ${COMPOSER_CACHE_PATH:-~/.composer}:/home/dev/.composer
-      - ./fpm
     environment:
       - HOME=/home/dev
       - PHP_FPM_FFMPEG=true
