@@ -19,7 +19,7 @@ services:
       default:
         <<: &url-aliases
           aliases:
-            - www.compressor.localhost
+            - www.video.compressor
       ingress:
         <<: *url-aliases
     environment:
