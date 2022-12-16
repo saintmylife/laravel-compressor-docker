@@ -212,6 +212,7 @@ tasks:
   setup:
     desc: Setup the project for the first time after git clone
     cmds:
+      - task: build
       - task: composer-install
       - task: refresh
 

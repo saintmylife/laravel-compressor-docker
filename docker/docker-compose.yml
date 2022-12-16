@@ -19,7 +19,7 @@ services:
       default:
         <<: &url-aliases
           aliases:
-            - www.compressor.localhost
+            - www.video.compressor
       ingress:
         <<: *url-aliases
     environment:
@@ -60,8 +60,6 @@ services:
     volumes:
       - mariadb:/var/lib/mysql
       - ./mariadb/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
-    ports:
-      - "${MARIADB_PORT:-3306}:3306"
     environment:
       - MYSQL_DATABASE=laravel_compress_video
       - MYSQL_USER=user
